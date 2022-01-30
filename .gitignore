@@ -13,3 +13,12 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# Mac
+*.DS_STORE
+
+# Goland
+.idea/**
+
+# Program generated files
+filed_*.db
