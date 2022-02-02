@@ -33,6 +33,36 @@ func insertFiles(repository *SQLiteRepository, files []*File) error {
 	return repository.InsertFiles(files)
 }
 
+func (i *Indexer) newFileGenerator(rootPath *string) <-chan *File {
+	c := make(chan *File)
+
+	go func() {
+		// TODO hidden files
+		err := filepath.Walk(*rootPath, func(path string, info fs.FileInfo, err error) error {
+			c <- &File{
+				Path:        path,
+				Size:        info.Size(),
+				ModifiedAt:  info.ModTime().Unix(),
+				IsDirectory: info.IsDir(),
+			}
+
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		close(c)
+	}()
+
+	return c
+}
+
 func (i *Indexer) Index(rootPath *string) error {
 	if i.BatchSize < 1 {
 		return ErrInvalidBatchSize
@@ -43,15 +73,9 @@ func (i *Indexer) Index(rootPath *string) error {
 
 	totalFilesProcessed := 0
 
-	// TODO hidden files
-	err := filepath.Walk(*rootPath, func(path string, info fs.FileInfo, err error) error {
-		file := &File{
-			Path:        path,
-			Size:        info.Size(),
-			ModifiedAt:  info.ModTime().Unix(),
-			IsDirectory: info.IsDir(),
-		}
+	fileChannel := i.newFileGenerator(rootPath)
 
+	for file := range fileChannel {
 		pendingFiles[pendingIndex] = file
 		pendingIndex++
 
@@ -64,12 +88,6 @@ func (i *Indexer) Index(rootPath *string) error {
 			}
 			fmt.Printf("Processed %v files/folders\n", totalFilesProcessed)
 		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err
 	}
 
 	if pendingIndex != 0 {
