@@ -68,34 +68,33 @@ func (i *Indexer) Index(rootPath *string) error {
 		return ErrInvalidBatchSize
 	}
 
-	pendingFiles := make([]*File, i.BatchSize)
-	pendingIndex := 0
+	pendingFiles := make([]*File, 0, i.BatchSize)
 
 	totalFilesProcessed := 0
 
 	fileChannel := i.newFileGenerator(rootPath)
 
 	for file := range fileChannel {
-		pendingFiles[pendingIndex] = file
-		pendingIndex++
+		pendingFiles = append(pendingFiles, file)
 
-		if pendingIndex == i.BatchSize {
-			pendingIndex = 0
-			totalFilesProcessed += i.BatchSize
+		if len(pendingFiles) == cap(pendingFiles) {
+			totalFilesProcessed += len(pendingFiles)
 
 			if err := insertFiles(i.repository, pendingFiles); err != nil {
 				return err
 			}
+
+			pendingFiles = pendingFiles[:0]
 			fmt.Printf("Processed %v files/folders\n", totalFilesProcessed)
 		}
 	}
 
-	if pendingIndex != 0 {
-		if err := insertFiles(i.repository, pendingFiles[0:pendingIndex]); err != nil {
+	if len(pendingFiles) != 0 {
+		if err := insertFiles(i.repository, pendingFiles); err != nil {
 			return err
 		}
 
-		totalFilesProcessed += pendingIndex
+		totalFilesProcessed += len(pendingFiles)
 		fmt.Printf("Processed %v files/folders\n", totalFilesProcessed)
 	}
 
