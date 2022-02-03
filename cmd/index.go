@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"log"
+	"os"
 	"time"
 )
 
@@ -29,6 +30,12 @@ filed_<timestamp> where timestamp is the current unix timestamp`,
 
 		now := time.Now()
 		fileName := fmt.Sprintf("filed_%v.db", now.Unix())
+		dir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fileName = dir + "/" + fileName
 
 		fileRepository, err := data.NewSQLiteRepositoryFromFile(fileName)
 		if err != nil {

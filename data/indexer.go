@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"sync"
 )
 
 var (
@@ -68,35 +69,74 @@ func (i *Indexer) Index(rootPath *string) error {
 		return ErrInvalidBatchSize
 	}
 
+	var waitGroup sync.WaitGroup
 	pendingFiles := make([]*File, 0, i.BatchSize)
 
-	totalFilesProcessed := 0
+	progressChan := make(chan int)
+	doneChan := make(chan bool)
 
-	fileChannel := i.newFileGenerator(rootPath)
+	go func() {
+		total := 0
 
-	for file := range fileChannel {
+		for delta := range progressChan {
+			total += delta
+			fmt.Printf("Processed %v files\n", total)
+		}
+
+		doneChan <- true
+	}()
+
+	skipPath := i.repository.filePath + "-journal"
+	err := filepath.Walk(*rootPath, func(path string, info fs.FileInfo, err error) error {
+		if path == i.repository.filePath || path == skipPath {
+			return nil
+		}
+
+		//go fmt.Println(path)
+		// TODO try having the method calls in the go routines - so just pass along the path and info
+		file := &File{
+			Path:        path,
+			Size:        info.Size(),
+			ModifiedAt:  info.ModTime().Unix(),
+			IsDirectory: info.IsDir(),
+		}
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		pendingFiles = append(pendingFiles, file)
 
 		if len(pendingFiles) == cap(pendingFiles) {
-			totalFilesProcessed += len(pendingFiles)
+			waitGroup.Add(1)
 
-			if err := insertFiles(i.repository, pendingFiles); err != nil {
-				return err
-			}
+			go func(files []*File) {
+				defer waitGroup.Done()
+				insertFiles(i.repository, files)
 
-			pendingFiles = pendingFiles[:0]
-			fmt.Printf("Processed %v files/folders\n", totalFilesProcessed)
+				progressChan <- len(files)
+			}(pendingFiles)
+
+			pendingFiles = make([]*File, 0, i.BatchSize)
 		}
-	}
+
+		return nil
+	})
 
 	if len(pendingFiles) != 0 {
-		if err := insertFiles(i.repository, pendingFiles); err != nil {
-			return err
-		}
+		waitGroup.Add(1)
+		go func(files []*File) {
+			defer waitGroup.Done()
 
-		totalFilesProcessed += len(pendingFiles)
-		fmt.Printf("Processed %v files/folders\n", totalFilesProcessed)
+			insertFiles(i.repository, files)
+			progressChan <- len(files)
+		}(pendingFiles)
 	}
 
-	return nil
+	waitGroup.Wait()
+	close(progressChan)
+
+	<-doneChan
+
+	return err
 }

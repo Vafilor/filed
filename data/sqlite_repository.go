@@ -8,13 +8,15 @@ import (
 
 // SQLiteRepository provides methods to interact with database
 type SQLiteRepository struct {
-	db *sql.DB
+	db       *sql.DB
+	filePath string // the path to the sqlite database file
 }
 
 // NewSQLiteRepository creates a new SQLiteRepository providing the minimum needed data to start
-func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
+func NewSQLiteRepository(db *sql.DB, filePath string) *SQLiteRepository {
 	return &SQLiteRepository{
-		db: db,
+		db:       db,
+		filePath: filePath,
 	}
 }
 
@@ -26,7 +28,7 @@ func NewSQLiteRepositoryFromFile(path string) (*SQLiteRepository, error) {
 		return nil, err
 	}
 
-	fileRepository := NewSQLiteRepository(db)
+	fileRepository := NewSQLiteRepository(db, path)
 
 	return fileRepository, nil
 }
