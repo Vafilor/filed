@@ -1,3 +1,5 @@
+//go:build !windows
+
 package hidden
 
 // IsHiddenFileName returns true if the file name is a hidden file
