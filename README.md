@@ -5,15 +5,15 @@ It stores the data in a local sqlite database for fast querying.
 
 ## Commands
 
-### index -p "path to directory"
+### index \<path to directory> --skipHidden
 
 Indexes all files recursively rooted at "path to directory" 
 
-### hash -d "path to sqlite database"
+### hash \<path to sqlite database>
 
 Hashes (sha512) all files in "path to sqlite database"
 
-### stats -d "path to sqlite database"
+### stats \<path to sqlite database>
 
 Finds statistics of all hashed files in "path to sqlite database"
 including 
