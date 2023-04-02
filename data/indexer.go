@@ -2,6 +2,7 @@ package data
 
 import (
 	"errors"
+	"filed/hidden"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -12,16 +13,16 @@ var (
 )
 
 type Indexer struct {
-	repository        *SQLiteRepository
-	BatchSize         int  // how many inserts to do at a time. Defaults to 1000
-	IgnoreHiddenFiles bool // if true, hidden files are ignored. Defaults to false
+	repository      *SQLiteRepository
+	BatchSize       int  // how many inserts to do at a time. Defaults to 1000
+	SkipHiddenFiles bool // if true, hidden files are ignored. Defaults to false
 }
 
 func NewIndexer(repository *SQLiteRepository) *Indexer {
 	return &Indexer{
-		repository:        repository,
-		BatchSize:         1000,
-		IgnoreHiddenFiles: false,
+		repository:      repository,
+		BatchSize:       1000,
+		SkipHiddenFiles: false,
 	}
 }
 
@@ -33,23 +34,45 @@ func insertFiles(repository *SQLiteRepository, files []*File) error {
 	return repository.InsertFiles(files)
 }
 
-func (i *Indexer) Index(rootPath *string) error {
+func (i *Indexer) Index(rootPath string) error {
 	if i.BatchSize < 1 {
 		return ErrInvalidBatchSize
 	}
 
 	pendingFiles := make([]*File, i.BatchSize)
 	pendingIndex := 0
-
 	totalFilesProcessed := 0
 
-	// TODO hidden files
-	err := filepath.Walk(*rootPath, func(path string, info fs.FileInfo, err error) error {
+	err := filepath.WalkDir(rootPath, func(path string, d fs.DirEntry, err error) error {
+		if d.Type()&fs.ModeSocket != 0 {
+			return nil
+		}
+
+		if i.SkipHiddenFiles {
+			isHidden, err := hidden.IsHiddenFileName(d.Name())
+			if err != nil {
+				return err
+			}
+
+			if isHidden {
+				if d.IsDir() {
+					return fs.SkipDir
+				}
+
+				return nil
+			}
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+
 		file := &File{
 			Path:        path,
 			Size:        info.Size(),
 			ModifiedAt:  info.ModTime().Unix(),
-			IsDirectory: info.IsDir(),
+			IsDirectory: d.IsDir(),
 		}
 
 		pendingFiles[pendingIndex] = file

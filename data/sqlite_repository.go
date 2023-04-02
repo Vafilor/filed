@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -31,7 +32,7 @@ func NewSQLiteRepositoryFromFile(path string) (*SQLiteRepository, error) {
 	return fileRepository, nil
 }
 
-// Migrate will create all tables and run necessasy migrations on a sqlite database
+// Migrate will create all tables and run necessary migrations on a sqlite database
 // It is safe to run this command multiple times
 func (s *SQLiteRepository) Migrate() error {
 	query := `
@@ -41,6 +42,7 @@ func (s *SQLiteRepository) Migrate() error {
 			size INTEGER,
 			modified_at INTEGER,
 			is_directory INTEGER,
+			hashed_at INTEGER,
 			hash TEXT
 		);
 
@@ -98,37 +100,11 @@ func (s *SQLiteRepository) InsertFilesStatistics(statistics []*FilesStatistic) e
 	return transaction.Commit()
 }
 
-// UpdateFilesHash will update the hash of the given files in the database
-func (s *SQLiteRepository) UpdateFilesHash(files []*File) error {
-	ctx := context.Background()
-	transaction, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		hashValue := "null"
-		if file.Hash != nil {
-			hashValue = *file.Hash
-		}
-
-		_, err := transaction.Exec(
-			"UPDATE files SET hash = ? WHERE id = ?",
-			hashValue, file.ID)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return transaction.Commit()
-}
-
 // ListFiles returns a FilePaginator for all files in the database ordered by id ASC
 // each result is limited to "limit" length
 func (s *SQLiteRepository) ListFiles(limit int) *FilePaginator {
 	query := `
-		SELECT id, path, size, modified_at, is_directory, hash
+		SELECT id, path, size, modified_at, is_directory, hash, hashed_at
 		FROM files 
 		WHERE is_directory = 0
 		ORDER BY id ASC
@@ -157,7 +133,6 @@ func (s *SQLiteRepository) CalculateFilesStatistics(limit int) *FilesStatisticsP
 		FROM files
 		WHERE hash IS NOT NULL
 		GROUP BY hash
-		ORDER BY size ASC
 	`
 
 	return NewFileStatisticsPaginator(s.db, &query, limit)

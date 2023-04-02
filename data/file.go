@@ -5,6 +5,7 @@ type File struct {
 	Path        string
 	Size        int64
 	ModifiedAt  int64
+	HashedAt    int64
 	IsDirectory bool
 	Hash        *string
 }
