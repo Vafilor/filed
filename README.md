@@ -19,3 +19,10 @@ Finds statistics of all hashed files in "path to sqlite database"
 including 
 * number of duplicates
 * total file size spent
+
+## Building
+
+### Windows
+
+Make sure to have a GCC compiler installed.
+I've been using https://jmeubank.github.io/tdm-gcc/ 
