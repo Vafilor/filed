@@ -49,7 +49,7 @@ func (i *Indexer) Index(rootPath string) error {
 		}
 
 		if i.SkipHiddenFiles {
-			isHidden, err := hidden.IsHiddenFileName(d.Name())
+			isHidden, err := hidden.IsHiddenFile(path, d.Name())
 			if err != nil {
 				return err
 			}

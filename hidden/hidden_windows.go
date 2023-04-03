@@ -2,10 +2,9 @@ package hidden
 
 import "syscall"
 
-// IsHiddenFileName returns true if the file name is a hidden file
-// this is denoted by having a . for the first character, as in .bashrc
-func IsHiddenFileName(name string) (bool, error) {
-	pointer, err := syscall.UTF16PtrFromString(name)
+// IsHiddenFile returns true if the file name is a hidden file
+func IsHiddenFile(path, name string) (bool, error) {
+	pointer, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
 		return false, err
 	}
